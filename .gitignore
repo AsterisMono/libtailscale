@@ -18,9 +18,20 @@ libtailscale_ios.h
 /ruby/ext/libtailscale/go.mod
 /ruby/ext/libtailscale/go.sum
 /ruby/LICENSE
-/target
+/sourcepkg/libtailscale
+/sourcepkg/libtailscale.tar*
 
 /sourcepkg/libtailscale
 /sourcepkg/libtailscale.tar*
 
 /vendor/
+
+.direnv
+.devenv
+.pre-commit-config.yaml
+result
+.DS_Store
+
+# Added by cargo
+
+/target
