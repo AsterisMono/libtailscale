@@ -15,6 +15,8 @@ fn main() {
         .unwrap();
     let ln = ts.listen(Network::Tcp, ":1999").unwrap();
 
+    println!("Echo server started at {:?}", ts.getips().unwrap());
+
     for conn in ln {
         match conn {
             Ok(conn) => {

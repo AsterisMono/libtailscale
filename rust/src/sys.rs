@@ -57,6 +57,13 @@ extern "C" {
         conn_out: *mut tailscale_conn,
     ) -> ::std::os::raw::c_int;
 }
+extern "C" {
+    pub fn tailscale_getips(
+        sd: tailscale,
+        buf: *mut ::std::os::raw::c_char,
+        buflen: usize,
+    ) -> ::std::os::raw::c_int;
+}
 pub type tailscale_listener = ::std::os::raw::c_int;
 extern "C" {
     pub fn tailscale_listen(
@@ -67,7 +74,13 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
-    pub fn tailscale_listener_close(listener: tailscale_listener) -> ::std::os::raw::c_int;
+    // TODO: Figure out a refactor to make use of this.
+    pub fn tailscale_getremoteaddr(
+        l: tailscale_listener,
+        conn: tailscale_conn,
+        buf: *mut ::std::os::raw::c_char,
+        buflen: usize,
+    ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn tailscale_accept(
@@ -82,6 +95,12 @@ extern "C" {
         addrlen: usize,
         proxy_cred_out: *mut ::std::os::raw::c_char,
         local_api_cred_out: *mut ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn tailscale_enable_funnel_to_localhost_plaintext_http1(
+        sd: tailscale,
+        localhostPort: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {

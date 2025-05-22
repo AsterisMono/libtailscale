@@ -60,7 +60,7 @@ use std::{
     fmt::Display,
     fs::File,
     io::Read,
-    net::TcpStream,
+    net::{IpAddr, TcpStream},
     os::fd::FromRawFd,
     path::PathBuf,
     thread,
@@ -175,6 +175,28 @@ impl Server {
 
         let conn = conn as c_int;
         Ok(unsafe { TcpStream::from_raw_fd(conn) })
+    }
+
+    /// Returns the IP addresses of the the Tailscale server.
+    pub fn getips(&self) -> Result<Vec<IpAddr>, Error> {
+        unsafe {
+            let mut ip_buf: [i8; 128] = [0; 128];
+            let res = sys::tailscale_getips(self.handle, &mut ip_buf as *mut _, ip_buf.len());
+            if res != 0 {
+                panic!("tailscale_getips returned {res}");
+            }
+
+            let slice = CStr::from_ptr(&ip_buf as *const _);
+            let comma_sep_ips: &str = std::str::from_utf8(slice.to_bytes()).unwrap();
+            if comma_sep_ips.contains("invalid IP") {
+                return Err(Error::TSNet("invalid IP".to_owned()));
+            }
+            let ips = comma_sep_ips
+                .split(',')
+                .map(|str| str.parse().unwrap())
+                .collect();
+            Ok(ips)
+        }
     }
 
     /// Listen on the given address and network for new connections.
@@ -388,7 +410,7 @@ impl ServerBuilder {
             )?
         }
 
-        unsafe { err(result.handle, sys::tailscale_start(result.handle))? }
+        unsafe { err(result.handle, sys::tailscale_up(result.handle))? }
 
         Ok(result)
     }
@@ -446,9 +468,7 @@ impl Listener {
 
 impl Drop for Listener {
     fn drop(&mut self) {
-        unsafe {
-            sys::tailscale_listener_close(self.handle);
-        }
+        nix::unistd::close(self.handle).unwrap();
     }
 }
 

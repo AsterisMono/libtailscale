@@ -17,6 +17,6 @@ fn main() {
 
     #[cfg(target_os = "macos")]
     {
-        println!("cargo:rustc-flags=-l framework=CoreFoundation -l framework=Security");
+        println!("cargo:rustc-flags=-l framework=CoreFoundation -l framework=Security -l framework=IOKit");
     }
 }
