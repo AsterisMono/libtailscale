@@ -14,6 +14,14 @@
 
 #include <stddef.h>
 
+#ifndef TAILSCALE_H
+#define TAILSCALE_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 // tailscale is a handle onto a Tailscale server.
 typedef int tailscale;
 
@@ -41,7 +49,10 @@ extern int tailscale_up(tailscale sd);
 
 // tailscale_close shuts down the server.
 //
-// Returns zero on success or -1 on error. No error details are available.
+// Returns:
+// 	0     - success
+// 	EBADF - sd is not a valid tailscale
+// 	-1    - other error, details printed to the tsnet logger
 extern int tailscale_close(tailscale sd);
 
 // The following set tailscale configuration options.
@@ -56,6 +67,7 @@ extern int tailscale_set_hostname(tailscale sd, const char* hostname);
 extern int tailscale_set_authkey(tailscale sd, const char* authkey);
 extern int tailscale_set_control_url(tailscale sd, const char* control_url);
 extern int tailscale_set_ephemeral(tailscale sd, int ephemeral);
+
 // tailscale_set_logfd instructs the tailscale instance to write logs to fd.
 //
 // An fd value of -1 means discard all logging.
@@ -68,6 +80,20 @@ extern int tailscale_set_logfd(tailscale sd, int fd);
 // It is a pipe(2) on which you can use read(2), write(2), and close(2).
 // For extra control over the connection, see the tailscale_conn_* functions.
 typedef int tailscale_conn;
+
+// Returns the IP addresses of the the Tailscale server as
+// a comma separated list.
+//
+// The provided buffer must be of sufficient size to hold the concatenated
+// IPs as strings.  This is typically <ipv4>,<ipv6> but maybe empty, or
+// contain any number of ips.   The caller is responsible for parsing
+// the output.  You may assume the output is a list of well-formed IPs.
+//
+// Returns:
+//  0      - Success
+// 	EBADF  - sd is not a valid tailscale, or l or conn are not valid listeneras or connections
+// 	ERANGE - insufficient storage for buf
+extern int tailscale_getips(tailscale sd, char* buf, size_t buflen);
 
 // tailscale_dial connects to the address on the tailnet.
 //
@@ -84,8 +110,12 @@ extern int tailscale_dial(tailscale sd, const char* network, const char* addr, t
 // A tailscale_listener is a socket on the tailnet listening for connections.
 //
 // It is much like allocating a system socket(2) and calling listen(2).
-// Because it is not a system socket, operate on it using the functions
-// tailscale_accept and tailscale_listener_close.
+// Accept connections with tailscale_accept and close the listener  with close.
+//
+// Under the hood, a tailscale_listener is one half of a socketpair itself,
+// used to move the connection fd from Go to C. This means you can use epoll
+// or its equivalent on a tailscale_listener to know if there is a connection
+// read to accept.
 typedef int tailscale_listener;
 
 // tailscale_listen listens for a connection on the tailnet.
@@ -101,13 +131,14 @@ typedef int tailscale_listener;
 // Returns zero on success or -1 on error, call tailscale_errmsg for details.
 extern int tailscale_listen(tailscale sd, const char* network, const char* addr, tailscale_listener* listener_out);
 
-// tailscale_listener_close closes the listener.
-//
+// Returns the remote address for an incoming connection for a particular listener.  The address (eitehr ip4 or ip6)
+// will ge written to buf on on success.
 // Returns:
-// 	0     - success
-// 	EBADF - listener is not a valid tailscale_listener
-// 	-1    - call tailscale_errmsg for details
-extern int tailscale_listener_close(tailscale_listener listener);
+//   0    - Success
+// 	EBADF  - sd is not a valid tailscale, or l or conn are not valid listeneras or connections
+// 	ERANGE - insufficient storage for buf
+extern int tailscale_getremoteaddr(tailscale_listener l, tailscale_conn conn, char* buf, size_t buflen);
+
 
 // tailscale_accept accepts a connection on a tailscale_listener.
 //
@@ -134,8 +165,31 @@ extern int tailscale_accept(tailscale_listener listener, tailscale_conn* conn_ou
 // "Sec-Tailscale: localapi" HTTP header and passing local_api_cred as
 // the basic auth password.
 //
+// The pointers proxy_cred_out and local_api_cred_out must be non-NIL
+// and point to arrays that can hold 33 bytes. The first 32 bytes are
+// the credential and the final byte is a NUL terminator.
+//
+// If tailscale_loopback returns, then addr_our, proxy_cred_out,
+// and local_api_cred_out are all NUL-terminated.
+//
 // Returns zero on success or -1 on error, call tailscale_errmsg for details.
-extern int tailscale_loopback(tailscale sd, char* addr_out, size_t addrlen, char proxy_cred_out[static 33], char local_api_cred_out[static 33]);
+extern int tailscale_loopback(tailscale sd, char* addr_out, size_t addrlen, char* proxy_cred_out, char* local_api_cred_out);
+
+// tailscale_enable_funnel_to_localhost_plaintext_http1 configures sd to have
+// Tailscale Funnel enabled, routing requests from the public web
+// (without any authentication) down to this Tailscale node, requesting new 
+// LetsEncrypt TLS certs as needed, terminating TLS, and proxying all incoming
+// HTTPS requests to http://127.0.0.1:localhostPort without TLS. 
+//
+// There should be a plaintext HTTP/1 server listening on 127.0.0.1:localhostPort
+// or tsnet will serve HTTP 502 errors.
+//
+// Expect junk traffic from the internet from bots watching the public CT logs.
+//
+// Returns:
+// 	0     - success
+// 	-1    - other error, details printed to the tsnet logger
+extern int tailscale_enable_funnel_to_localhost_plaintext_http1(tailscale sd, int localhostPort);
 
 // tailscale_errmsg writes the details of the last error to buf.
 // 
@@ -146,3 +200,10 @@ extern int tailscale_loopback(tailscale sd, char* addr_out, size_t addrlen, char
 // 	EBADF  - sd is not a valid tailscale
 // 	ERANGE - insufficient storage for buf
 extern int tailscale_errmsg(tailscale sd, char* buf, size_t buflen);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

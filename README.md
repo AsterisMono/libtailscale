@@ -1,4 +1,4 @@
-# tsnet - bindings for libtailscale.
+# tsnet - bindings for libtailscale
 
 libtailscale is a C library that embeds Tailscale into a process.
 tsnet is a Rust crate wrapping libtailscale and exposing a Rust-y API on top.
@@ -38,6 +38,12 @@ Run the examples with
 ```
 cargo run --example echo_server
 cargo run --example echo_client
+```
+
+or
+
+```
+make shared
 ```
 
 ## Bugs
