@@ -222,6 +222,22 @@ impl Server {
         }
     }
 
+    /// Funnel requests from the public web down to this node.
+    pub fn enable_funnel_to_localhost_plaintext_http1(
+        &self,
+        localhost_port: i32,
+    ) -> Result<(), Error> {
+        unsafe {
+            err(
+                self.handle,
+                sys::tailscale_enable_funnel_to_localhost_plaintext_http1(
+                    self.handle,
+                    localhost_port,
+                ),
+            )
+        }
+    }
+
     #[cfg(feature = "tokio")]
     pub fn listen_async(&self, network: Network, address: &str) -> Result<AsyncListener, Error> {
         let ls = self.listen(network, address)?;
